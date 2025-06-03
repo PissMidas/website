@@ -1,6 +1,6 @@
 <head>
     <meta charset="UTF-8">
-    <title>Privacy Policy</title>
+    
     <meta name="google-site-verification" content="quPe9cKBc7hcUIQpqAdgw34o3To2IaBWSDzcB1SZ-44" />
 </head> 
   <h1>PissMidas</h1>
