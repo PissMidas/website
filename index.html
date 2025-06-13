@@ -29,7 +29,7 @@
     </style>
 </head>
 <body>
-    <h1>PissMidas 214</h1>
+    <h1>PissMidas 223</h1>
     <p>This is the official homepage of the Awakening Overlay Uploader App.</p>
     <p>This app is for tournament stream runners to display awakenings for the game Omega Strikers. The app reads data from locally generated .log files that the game creates while running. The app processes those game events and uploads that data to a Google Sheet. Users can then use the sheet to generate a graphic overlay, and have that overlay be broadcasted on their tournament stream.</p>
 
@@ -51,7 +51,8 @@
     <script>
         const CLIENT_ID = '304904465571-jt6kkpt4hcf1961khu78l4fud89u5im8.apps.googleusercontent.com';
         const DEVELOPER_KEY = 'AIzaSyDOdsegG1Z1AyXM_hSwX3LapVFwp2xOiYM';
-        const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+        //const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+        const SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email openid';
 
         let tokenClient;
         let accessToken = null;
