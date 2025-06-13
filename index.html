@@ -29,7 +29,7 @@
     </style>
 </head>
 <body>
-    <h1>PissMidas 223</h1>
+    <h1>PissMidas 229</h1>
     <p>This is the official homepage of the Awakening Overlay Uploader App.</p>
     <p>This app is for tournament stream runners to display awakenings for the game Omega Strikers. The app reads data from locally generated .log files that the game creates while running. The app processes those game events and uploads that data to a Google Sheet. Users can then use the sheet to generate a graphic overlay, and have that overlay be broadcasted on their tournament stream.</p>
 
@@ -42,16 +42,11 @@
     <div id="status">Loading APIs...</div>
     <div id="selected-spreadsheet"></div>
 
-    <!-- Load Google APIs with onload callbacks -->
-    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-    <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-    <script src="https://apis.google.com/js/api.js?onload=loadPickerApi"></script>
-    <script src="https://apis.google.com/js/client.js"></script>
-
     <script>
+        // Google OAuth and Picker variables
         const CLIENT_ID = '304904465571-jt6kkpt4hcf1961khu78l4fud89u5im8.apps.googleusercontent.com';
         const DEVELOPER_KEY = 'AIzaSyDOdsegG1Z1AyXM_hSwX3LapVFwp2xOiYM';
-        //const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+        // Note scopes must be space separated
         const SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email openid';
 
         let tokenClient;
@@ -63,7 +58,7 @@
         const pickBtn = document.getElementById('pick-spreadsheet-btn');
         const selectedSpreadsheetEl = document.getElementById('selected-spreadsheet');
 
-        // Called when the Google Picker API is loaded
+        // Called when the Google API client library is loaded
         function gapiLoaded() {
             console.log("Google API loaded.");
             gapi.load('picker', {
@@ -75,7 +70,7 @@
             });
         }
 
-        // Called when Google Identity Services client is loaded
+        // Called when Google Identity Services library is loaded
         function gisLoaded() {
             console.log("Google Identity Services client loaded.");
             tokenClient = google.accounts.oauth2.initTokenClient({
@@ -91,6 +86,7 @@
                     console.log('Access token obtained.');
                     statusEl.textContent = 'Authentication successful. You can now choose a spreadsheet.';
                     pickBtn.disabled = false;
+                    // Once authorized, open picker automatically
                     loadPicker();
                 }
             });
@@ -98,7 +94,7 @@
             updateStatus();
         }
 
-        // Update UI status text depending on what is ready
+        // Update the UI status text based on API states
         function updateStatus() {
             if (!pickerInited && !gisInited) {
                 statusEl.textContent = 'Loading APIs...';
@@ -115,20 +111,18 @@
             }
         }
 
-        // Authenticate and request access token
+        // Request OAuth token (prompts user consent if necessary)
         function authenticate() {
-            return new Promise((resolve, reject) => {
-                if (!accessToken) {
-                    statusEl.textContent = 'Requesting authorization...';
-                    tokenClient.requestAccessToken({ prompt: 'consent' });
-                    resolve();
-                } else {
-                    resolve();
-                }
-            });
+            if (!accessToken) {
+                statusEl.textContent = 'Requesting authorization...';
+                tokenClient.requestAccessToken({ prompt: 'consent' });
+            } else {
+                // Token already exists
+                loadPicker();
+            }
         }
 
-        // Load the Google Picker to select spreadsheets
+        // Create and show the Google Picker for selecting spreadsheets
         function loadPicker() {
             if (!pickerInited || !accessToken) {
                 alert("Picker API or authorization not ready yet.");
@@ -147,7 +141,7 @@
             console.log("Picker displayed.");
         }
 
-        // Callback for when a user picks a spreadsheet
+        // Called when a spreadsheet is selected or picker is canceled
         function pickerCallback(data) {
             if (data.action === google.picker.Action.PICKED) {
                 const fileId = data.docs[0].id;
@@ -155,22 +149,27 @@
                 console.log(`User selected spreadsheet: ${fileUrl}`);
                 selectedSpreadsheetEl.innerHTML = `Selected Spreadsheet: <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileUrl}</a>`;
                 statusEl.textContent = 'Spreadsheet selected successfully.';
-                // TODO: Pass fileId to your backend or store as needed
+                // TODO: Send fileId to your backend or save in local storage
             } else if (data.action === google.picker.Action.CANCEL) {
                 statusEl.textContent = 'Spreadsheet selection cancelled.';
             }
         }
 
-        // Event listener for the button
+        // Setup event listener for button click
         pickBtn.addEventListener('click', () => {
             authenticate();
         });
 
-        // On page load, disable the button until APIs are ready
+        // Initialize page state on load
         window.onload = () => {
             pickBtn.disabled = true;
             updateStatus();
         };
     </script>
+
+    <!-- Load Google APIs after functions are defined -->
+    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
 </body>
 </html>
