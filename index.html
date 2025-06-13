@@ -28,12 +28,12 @@
     <a href="privacy.html">Privacy Policy</a>
 
     <h2>Select a Google Spreadsheet</h2>
-    <h1>Give your app permission to use a chosen spreadsheet. This step is required to get the app to read your spreadsheet.</h1>
+    <p>Click the button below to give the app permission to use a chosen spreadsheet. This step is required to get the app to read your spreadsheet.</p>
     <button onclick="authenticate().then(loadPicker)">Choose Spreadsheet</button>
 
     <script>
-        const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID';
-        const DEVELOPER_KEY = 'YOUR_DEVELOPER_KEY';
+        const CLIENT_ID = '304904465571-0bcd8ru3v1r25vjcjo5l435bop0ql2l6.apps.googleusercontent.com';
+        const DEVELOPER_KEY = 'AIzaSyDOdsegG1Z1AyXM_hSwX3LapVFwp2xOiYM';
         const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
         let tokenClient;
