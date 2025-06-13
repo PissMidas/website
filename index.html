@@ -4,11 +4,100 @@
     <meta charset="UTF-8">
     <title>PissMidas - Awakening Overlay Uploader</title>
     <meta name="google-site-verification" content="quPe9cKBc7hcUIQpqAdgw34o3To2IaBWSDzcB1SZ-44" />
+    <script type="text/javascript" src="https://accounts.google.com/gsi/client"></script>
+    <script type="text/javascript" src="https://apis.google.com/js/api.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 700px;
+            margin: 2rem auto;
+            line-height: 1.6;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
 </head>
 <body>
     <h1>PissMidas</h1>
     <p>This is the official homepage of the Awakening Overlay Uploader App.</p>
-    <p>This app is for tournament stream runners to display awakenings for the game Omega Strikers. The app reads data from locally generated .log files that the game creates while running. The app processes those game events and uploads that data to a google sheet. Users can then use the sheet to generate a graphic overlay, and have that overlay be broadcasted on their tournament stream.</p>
+    <p>This app is for tournament stream runners to display awakenings for the game Omega Strikers. The app reads data from locally generated .log files that the game creates while running. The app processes those game events and uploads that data to a Google Sheet. Users can then use the sheet to generate a graphic overlay, and have that overlay be broadcasted on their tournament stream.</p>
+
     <a href="privacy.html">Privacy Policy</a>
+
+    <h2>Select a Google Spreadsheet</h2>
+    <button onclick="authenticate().then(loadPicker)">Choose Spreadsheet</button>
+
+    <script>
+        const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID';
+        const DEVELOPER_KEY = 'YOUR_DEVELOPER_KEY';
+        const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+
+        let tokenClient;
+        let accessToken = null;
+        let pickerInited = false;
+        let gisInited = false;
+
+        function gapiLoaded() {
+            gapi.load('picker', { callback: () => { pickerInited = true; } });
+        }
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPE,
+                callback: '', // Will be set later
+            });
+            gisInited = true;
+        }
+
+        function authenticate() {
+            return new Promise((resolve, reject) => {
+                tokenClient.callback = (resp) => {
+                    if (resp.error !== undefined) {
+                        reject(resp);
+                    }
+                    accessToken = resp.access_token;
+                    resolve();
+                };
+
+                if (!accessToken) {
+                    tokenClient.requestAccessToken({ prompt: 'consent' });
+                } else {
+                    resolve();
+                }
+            });
+        }
+
+        function loadPicker() {
+            if (!pickerInited || !accessToken) return;
+
+            const view = new google.picker.View(google.picker.ViewId.SPREADSHEETS);
+            const picker = new google.picker.PickerBuilder()
+                .enableFeature(google.picker.Feature.NAV_HIDDEN)
+                .setDeveloperKey(DEVELOPER_KEY)
+                .setOAuthToken(accessToken)
+                .addView(view)
+                .setCallback(pickerCallback)
+                .build();
+            picker.setVisible(true);
+        }
+
+        function pickerCallback(data) {
+            if (data.action === google.picker.Action.PICKED) {
+                const fileId = data.docs[0].id;
+                const fileUrl = `https://docs.google.com/spreadsheets/d/${fileId}/edit`;
+                alert(`You selected: ${fileUrl}`);
+                // You could now POST this fileId to your desktop app, save it in localStorage, etc.
+            }
+        }
+
+        window.onload = function () {
+            gapiLoaded();
+            gisLoaded();
+        };
+    </script>
 </body>
 </html>
