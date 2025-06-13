@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>PissMidas - Awakening Overlay Uploader</title>
     <meta name="google-site-verification" content="quPe9cKBc7hcUIQpqAdgw34o3To2IaBWSDzcB1SZ-44" />
-    <script type="text/javascript" src="https://accounts.google.com/gsi/client"></script>
-    <script type="text/javascript" src="https://apis.google.com/js/api.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -17,6 +15,16 @@
             margin-top: 20px;
             padding: 10px 20px;
             font-size: 16px;
+            cursor: pointer;
+        }
+        #selected-spreadsheet {
+            margin-top: 20px;
+            font-weight: bold;
+            word-break: break-word;
+        }
+        #status {
+            margin-top: 10px;
+            color: #555;
         }
     </style>
 </head>
@@ -29,7 +37,16 @@
 
     <h2>Select a Google Spreadsheet</h2>
     <p>Click the button below to give the app permission to use a chosen spreadsheet. This step is required to get the app to read your spreadsheet.</p>
-    <button onclick="authenticate().then(loadPicker)">Choose Spreadsheet</button>
+    <button id="pick-spreadsheet-btn" disabled>Choose Spreadsheet</button>
+
+    <div id="status">Loading APIs...</div>
+    <div id="selected-spreadsheet"></div>
+
+    <!-- Load Google APIs with onload callbacks -->
+    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <script src="https://apis.google.com/js/api.js?onload=loadPickerApi"></script>
+    <script src="https://apis.google.com/js/client.js"></script>
 
     <script>
         const CLIENT_ID = '304904465571-jt6kkpt4hcf1961khu78l4fud89u5im8.apps.googleusercontent.com';
@@ -41,39 +58,81 @@
         let pickerInited = false;
         let gisInited = false;
 
+        const statusEl = document.getElementById('status');
+        const pickBtn = document.getElementById('pick-spreadsheet-btn');
+        const selectedSpreadsheetEl = document.getElementById('selected-spreadsheet');
+
+        // Called when the Google Picker API is loaded
         function gapiLoaded() {
-            gapi.load('picker', { callback: () => { pickerInited = true; } });
+            console.log("Google API loaded.");
+            gapi.load('picker', {
+                callback: () => {
+                    pickerInited = true;
+                    console.log("Picker API initialized.");
+                    updateStatus();
+                }
+            });
         }
 
+        // Called when Google Identity Services client is loaded
         function gisLoaded() {
+            console.log("Google Identity Services client loaded.");
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPE,
-                callback: '', // Will be set later
-            });
-            gisInited = true;
-        }
-
-        function authenticate() {
-            return new Promise((resolve, reject) => {
-                tokenClient.callback = (resp) => {
-                    if (resp.error !== undefined) {
-                        reject(resp);
+                callback: (resp) => {
+                    if (resp.error) {
+                        console.error('Token error:', resp);
+                        statusEl.textContent = 'Authentication failed. Please try again.';
+                        return;
                     }
                     accessToken = resp.access_token;
-                    resolve();
-                };
+                    console.log('Access token obtained.');
+                    statusEl.textContent = 'Authentication successful. You can now choose a spreadsheet.';
+                    pickBtn.disabled = false;
+                    loadPicker();
+                }
+            });
+            gisInited = true;
+            updateStatus();
+        }
 
+        // Update UI status text depending on what is ready
+        function updateStatus() {
+            if (!pickerInited && !gisInited) {
+                statusEl.textContent = 'Loading APIs...';
+                pickBtn.disabled = true;
+            } else if (!pickerInited) {
+                statusEl.textContent = 'Loading Picker API...';
+                pickBtn.disabled = true;
+            } else if (!gisInited) {
+                statusEl.textContent = 'Loading Identity Services...';
+                pickBtn.disabled = true;
+            } else {
+                statusEl.textContent = 'APIs loaded. Please authenticate to continue.';
+                pickBtn.disabled = false;
+            }
+        }
+
+        // Authenticate and request access token
+        function authenticate() {
+            return new Promise((resolve, reject) => {
                 if (!accessToken) {
+                    statusEl.textContent = 'Requesting authorization...';
                     tokenClient.requestAccessToken({ prompt: 'consent' });
+                    resolve();
                 } else {
                     resolve();
                 }
             });
         }
 
+        // Load the Google Picker to select spreadsheets
         function loadPicker() {
-            if (!pickerInited || !accessToken) return;
+            if (!pickerInited || !accessToken) {
+                alert("Picker API or authorization not ready yet.");
+                return;
+            }
 
             const view = new google.picker.View(google.picker.ViewId.SPREADSHEETS);
             const picker = new google.picker.PickerBuilder()
@@ -84,20 +143,32 @@
                 .setCallback(pickerCallback)
                 .build();
             picker.setVisible(true);
+            console.log("Picker displayed.");
         }
 
+        // Callback for when a user picks a spreadsheet
         function pickerCallback(data) {
             if (data.action === google.picker.Action.PICKED) {
                 const fileId = data.docs[0].id;
                 const fileUrl = `https://docs.google.com/spreadsheets/d/${fileId}/edit`;
-                alert(`You selected: ${fileUrl}`);
-                // You could now POST this fileId to your desktop app, save it in localStorage, etc.
+                console.log(`User selected spreadsheet: ${fileUrl}`);
+                selectedSpreadsheetEl.innerHTML = `Selected Spreadsheet: <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileUrl}</a>`;
+                statusEl.textContent = 'Spreadsheet selected successfully.';
+                // TODO: Pass fileId to your backend or store as needed
+            } else if (data.action === google.picker.Action.CANCEL) {
+                statusEl.textContent = 'Spreadsheet selection cancelled.';
             }
         }
 
-        window.onload = function () {
-            gapiLoaded();
-            gisLoaded();
+        // Event listener for the button
+        pickBtn.addEventListener('click', () => {
+            authenticate();
+        });
+
+        // On page load, disable the button until APIs are ready
+        window.onload = () => {
+            pickBtn.disabled = true;
+            updateStatus();
         };
     </script>
 </body>
