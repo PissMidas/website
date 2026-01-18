@@ -1,156 +1,176 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>PissMidas - Awakening Overlay Uploader</title>
-    <meta name="google-site-verification" content="quPe9cKBc7hcUIQpqAdgw34o3To2IaBWSDzcB1SZ-44" />
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 700px;
-            margin: 2rem auto;
-            line-height: 1.6;
-        }
-        button {
-            margin-top: 20px;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        #selected-spreadsheet {
-            margin-top: 20px;
-            font-weight: bold;
-            word-break: break-word;
-        }
-        #status {
-            margin-top: 10px;
-            color: #555;
-        }
-    </style>
+<meta charset="UTF-8" />
+<title>PissMidas - Awakening Overlay Uploader</title>
+<meta name="google-site-verification" content="quPe9cKBc7hcUIQpqAdgw34o3To2IaBWSDzcB1SZ-44" />
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        max-width: 700px;
+        margin: 2rem auto;
+        line-height: 1.6;
+    }
+    button {
+        margin-top: 20px;
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    #selected-spreadsheet {
+        margin-top: 20px;
+        font-weight: bold;
+        word-break: break-word;
+    }
+    #status {
+        margin-top: 10px;
+        color: #555;
+    }
+    /* New "Open Picker" button style */
+    #open-picker-btn {
+        display: none;
+        background-color: #4CAF50;
+        color: white;
+        font-weight: bold;
+        border: none;
+        border-radius: 5px;
+        font-size: 18px;
+    }
+    #picker-step {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #fffae6;
+        border: 1px solid #ffd42a;
+        border-radius: 5px;
+        display: none;
+    }
+</style>
 </head>
 <body>
-    <h1>PissMidas</h1>
-    <p>This is the official homepage of the Awakening Overlay Uploader App.</p>
-    <p>This app is for tournament stream runners to display awakenings for the game Omega Strikers. The app reads data from locally generated .log files that the game creates while running. The app processes those game events and uploads that data to a Google Sheet. Users can then use the sheet to generate a graphic overlay, and have that overlay be broadcasted on their tournament stream.</p>
+<h1>PissMidas</h1>
+<p>This is the official homepage of the Awakening Overlay Uploader App.</p>
+<p>This app is for tournament stream runners to display awakenings for the game Omega Strikers. The app reads data from locally generated .log files that the game creates while running. The app processes those game events and uploads that data to a Google Sheet. Users can then use the sheet to generate a graphic overlay, and have that overlay be broadcasted on their tournament stream.</p>
 
-    <a href="privacy.html">Privacy Policy</a>
+<a href="privacy.html">Privacy Policy</a>
 
-    <h2>Select a Google Spreadsheet</h2>
-    <p>Click the button below to give the app permission to use a chosen spreadsheet. This step is required to get the app to read your spreadsheet.</p>
-    <button id="pick-spreadsheet-btn" disabled>Choose Spreadsheet</button>
+<h2>Select a Google Spreadsheet</h2>
+<p>Click the button below to give the app permission to use a chosen spreadsheet. This step is required to get the app to read your spreadsheet.</p>
+<button id="pick-spreadsheet-btn" disabled>Authenticate</button>
 
-    <div id="status">Loading APIs...</div>
-    <div id="selected-spreadsheet"></div>
+<div id="picker-step">
+    <p><strong>Step 2:</strong> Click the button below to choose your spreadsheet.</p>
+    <button id="open-picker-btn">Open Picker</button>
+</div>
 
-    <!-- Load Google API and Identity Services -->
-    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()" async defer></script>
-    <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" async defer></script>
+<div id="status">Loading APIs...</div>
+<div id="selected-spreadsheet"></div>
 
-    <script>
-        const CLIENT_ID = '304904465571-jt6kkpt4hcf1961khu78l4fud89u5im8.apps.googleusercontent.com';
-        const DEVELOPER_KEY = 'AIzaSyDOdsegG1Z1AyXM_hSwX3LapVFwp2xOiYM';
-        const APP_ID = '304904465571';
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+<!-- Load Google API and Identity Services -->
+<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()" async defer></script>
+<script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" async defer></script>
 
-        let tokenClient;
-        let accessToken = null;
-        let pickerInited = false;
-        let gisInited = false;
+<script>
+    const CLIENT_ID = '304904465571-jt6kkpt4hcf1961khu78l4fud89u5im8.apps.googleusercontent.com';
+    const DEVELOPER_KEY = 'AIzaSyDOdsegG1Z1AyXM_hSwX3LapVFwp2xOiYM';
+    const APP_ID = '304904465571';
+    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
-        const statusEl = document.getElementById('status');
-        const pickBtn = document.getElementById('pick-spreadsheet-btn');
-        const selectedSpreadsheetEl = document.getElementById('selected-spreadsheet');
+    let tokenClient;
+    let accessToken = null;
+    let pickerInited = false;
+    let gisInited = false;
 
-        function gapiLoaded() {
-            console.log('Google API loaded.');
-            gapi.load('picker', onPickerApiLoad);
-        }
+    const statusEl = document.getElementById('status');
+    const authBtn = document.getElementById('pick-spreadsheet-btn');
+    const pickerStepDiv = document.getElementById('picker-step');
+    const openPickerBtn = document.getElementById('open-picker-btn');
+    const selectedSpreadsheetEl = document.getElementById('selected-spreadsheet');
 
-        function onPickerApiLoad() {
-            pickerInited = true;
-            console.log('Picker API initialized.');
-            updateStatus();
-        }
+    function gapiLoaded() {
+        console.log('Google API loaded.');
+        gapi.load('picker', onPickerApiLoad);
+    }
 
-        function gisLoaded() {
-            console.log('Google Identity Services loaded.');
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-            });
-            gisInited = true;
-            updateStatus();
-        }
+    function onPickerApiLoad() {
+        pickerInited = true;
+        console.log('Picker API initialized.');
+        updateStatus();
+    }
 
-        function updateStatus() {
-            if (!pickerInited || !gisInited) {
-                statusEl.textContent = 'Loading APIs...';
-                pickBtn.disabled = true;
-            } else {
-                statusEl.textContent = 'APIs loaded. Click the button to authenticate and choose a spreadsheet.';
-                pickBtn.disabled = false;
-            }
-        }
-
-        pickBtn.addEventListener('click', () => {
-            // Request access token with user click
-            tokenClient.callback = (resp) => {
-                if (resp.error) {
-                    statusEl.textContent = 'Authentication failed.';
-                    console.error(resp.error);
-                    return;
-                }
-                accessToken = resp.access_token;
-                statusEl.textContent = 'Authentication successful. Opening Picker...';
-                createPicker();
-            };
-
-            // Prompt only if needed; otherwise, uses cached consent
-            tokenClient.requestAccessToken({ prompt: '' });
+    function gisLoaded() {
+        console.log('Google Identity Services loaded.');
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
         });
+        gisInited = true;
+        updateStatus();
+    }
 
-        function createPicker() {
-            if (!pickerInited) {
-                alert('Picker API not loaded yet.');
+    function updateStatus() {
+        if (!pickerInited || !gisInited) {
+            statusEl.textContent = 'Loading APIs...';
+            authBtn.disabled = true;
+        } else {
+            statusEl.textContent = 'APIs loaded. Click Authenticate to continue.';
+            authBtn.disabled = false;
+        }
+    }
+
+    // === Step 1: Authenticate ===
+    authBtn.addEventListener('click', () => {
+        tokenClient.callback = (resp) => {
+            if (resp.error) {
+                statusEl.textContent = 'Authentication failed.';
+                console.error(resp.error);
                 return;
             }
-            if (!accessToken) {
-                alert('You must authenticate first.');
-                return;
-            }
-
-            const view = new google.picker.View(google.picker.ViewId.SPREADSHEETS);
-
-            const picker = new google.picker.PickerBuilder()
-                .addView(view)
-                .enableFeature(google.picker.Feature.NAV_HIDDEN)
-                .setOAuthToken(accessToken)
-                .setDeveloperKey(DEVELOPER_KEY)
-                .setAppId(APP_ID)
-                .setCallback(pickerCallback)
-                .build();
-
-            picker.setVisible(true);
-            console.log('Picker shown.');
-        }
-
-        function pickerCallback(data) {
-            if (data.action === google.picker.Action.PICKED) {
-                const doc = data.docs[0];
-                const fileId = doc.id;
-                const fileUrl = `https://docs.google.com/spreadsheets/d/${fileId}/edit`;
-                console.log(`User selected spreadsheet: ${fileUrl}`);
-                selectedSpreadsheetEl.innerHTML = `Selected Spreadsheet: <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileUrl}</a>`;
-                statusEl.textContent = 'Spreadsheet selected successfully.';
-            } else if (data.action === google.picker.Action.CANCEL) {
-                statusEl.textContent = 'Spreadsheet selection cancelled.';
-            }
-        }
-
-        window.onload = () => {
-            pickBtn.disabled = true;
-            updateStatus();
+            accessToken = resp.access_token;
+            statusEl.textContent = 'Authentication successful! Proceed to Step 2.';
+            pickerStepDiv.style.display = 'block'; // show step 2
         };
-    </script>
+        tokenClient.requestAccessToken({ prompt: 'consent' }); // ask consent if first time
+    });
+
+    // === Step 2: Open Picker ===
+    openPickerBtn.addEventListener('click', () => {
+        if (!pickerInited || !accessToken) {
+            alert('Picker not ready or not authenticated.');
+            return;
+        }
+        createPicker();
+    });
+
+    function createPicker() {
+        const view = new google.picker.View(google.picker.ViewId.SPREADSHEETS);
+        const picker = new google.picker.PickerBuilder()
+            .addView(view)
+            .enableFeature(google.picker.Feature.NAV_HIDDEN)
+            .setOAuthToken(accessToken)
+            .setDeveloperKey(DEVELOPER_KEY)
+            .setAppId(APP_ID)
+            .setCallback(pickerCallback)
+            .build();
+        picker.setVisible(true);
+        console.log('Picker shown.');
+    }
+
+    function pickerCallback(data) {
+        if (data.action === google.picker.Action.PICKED) {
+            const doc = data.docs[0];
+            const fileId = doc.id;
+            const fileUrl = `https://docs.google.com/spreadsheets/d/${fileId}/edit`;
+            selectedSpreadsheetEl.innerHTML = `Selected Spreadsheet: <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileUrl}</a>`;
+            statusEl.textContent = 'Spreadsheet selected successfully.';
+        } else if (data.action === google.picker.Action.CANCEL) {
+            statusEl.textContent = 'Spreadsheet selection cancelled.';
+        }
+    }
+
+    window.onload = () => {
+        authBtn.disabled = true;
+        updateStatus();
+    };
+</script>
 </body>
 </html>
