@@ -47,13 +47,11 @@
     <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" async defer></script>
 
     <script>
-        // === CONFIGURE THESE CONSTANTS ===
         const CLIENT_ID = '304904465571-jt6kkpt4hcf1961khu78l4fud89u5im8.apps.googleusercontent.com';
         const DEVELOPER_KEY = 'AIzaSyDOdsegG1Z1AyXM_hSwX3LapVFwp2xOiYM';
-        const APP_ID = '304904465571'; // Replace with your Google Cloud project number (not Client ID)
+        const APP_ID = '304904465571';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
-        // === STATE VARIABLES ===
         let tokenClient;
         let accessToken = null;
         let pickerInited = false;
@@ -63,20 +61,17 @@
         const pickBtn = document.getElementById('pick-spreadsheet-btn');
         const selectedSpreadsheetEl = document.getElementById('selected-spreadsheet');
 
-        // Called when Google API client library loads
         function gapiLoaded() {
             console.log('Google API loaded.');
             gapi.load('picker', onPickerApiLoad);
         }
 
-        // Called when Picker API has loaded
         function onPickerApiLoad() {
             pickerInited = true;
             console.log('Picker API initialized.');
             updateStatus();
         }
 
-        // Called when Google Identity Services library loads
         function gisLoaded() {
             console.log('Google Identity Services loaded.');
             tokenClient = google.accounts.oauth2.initTokenClient({
@@ -90,16 +85,14 @@
                     }
                     accessToken = resp.access_token;
                     console.log('Access token obtained.');
-                    statusEl.textContent = 'Authentication successful. You can now choose a spreadsheet.';
+                    statusEl.textContent = 'Authentication successful. Click the button again to choose a spreadsheet.';
                     pickBtn.disabled = false;
-                    createPicker();
                 }
             });
             gisInited = true;
             updateStatus();
         }
 
-        // Update status message and button state based on loaded APIs
         function updateStatus() {
             if (!pickerInited && !gisInited) {
                 statusEl.textContent = 'Loading APIs...';
@@ -121,18 +114,16 @@
             }
         }
 
-        // Handle the button click to authenticate and show picker
         pickBtn.addEventListener('click', () => {
             if (!accessToken) {
                 // Request user consent and get access token
                 tokenClient.requestAccessToken({ prompt: 'consent' });
             } else {
-                // Access token exists, show picker directly
+                // Only open Picker from a direct user click
                 createPicker();
             }
         });
 
-        // Create and show Google Picker
         function createPicker() {
             if (!pickerInited) {
                 alert('Picker API not loaded yet.');
@@ -147,7 +138,7 @@
 
             const picker = new google.picker.PickerBuilder()
                 .addView(view)
-                .enableFeature(google.picker.Feature.NAV_HIDDEN) // Hide nav to maximize space
+                .enableFeature(google.picker.Feature.NAV_HIDDEN)
                 .setOAuthToken(accessToken)
                 .setDeveloperKey(DEVELOPER_KEY)
                 .setAppId(APP_ID)
@@ -158,7 +149,6 @@
             console.log('Picker shown.');
         }
 
-        // Handle user's selection from Picker
         function pickerCallback(data) {
             if (data.action === google.picker.Action.PICKED) {
                 const doc = data.docs[0];
@@ -167,13 +157,11 @@
                 console.log(`User selected spreadsheet: ${fileUrl}`);
                 selectedSpreadsheetEl.innerHTML = `Selected Spreadsheet: <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileUrl}</a>`;
                 statusEl.textContent = 'Spreadsheet selected successfully.';
-                // TODO: Use fileId in your app logic as needed
             } else if (data.action === google.picker.Action.CANCEL) {
                 statusEl.textContent = 'Spreadsheet selection cancelled.';
             }
         }
 
-        // On page load, initialize UI state
         window.onload = () => {
             pickBtn.disabled = true;
             updateStatus();
