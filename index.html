@@ -26,23 +26,30 @@
         margin-top: 10px;
         color: #555;
     }
-    /* New "Open Picker" button style */
-    #open-picker-btn {
+    /* Step 2 panel style */
+    #picker-step {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #ffe6e6;
+        border: 2px solid red;
+        border-radius: 5px;
         display: none;
-        background-color: #4CAF50;
+        animation: pulse 1s infinite alternate;
+    }
+    #open-picker-btn {
+        background-color: red;
         color: white;
         font-weight: bold;
         border: none;
         border-radius: 5px;
         font-size: 18px;
+        padding: 10px 20px;
+        cursor: pointer;
     }
-    #picker-step {
-        margin-top: 20px;
-        padding: 15px;
-        background-color: #fffae6;
-        border: 1px solid #ffd42a;
-        border-radius: 5px;
-        display: none;
+
+    @keyframes pulse {
+        0% { background-color: #ffe6e6; }
+        100% { background-color: #ffcccc; }
     }
 </style>
 </head>
@@ -54,18 +61,17 @@
 <a href="privacy.html">Privacy Policy</a>
 
 <h2>Select a Google Spreadsheet</h2>
-<p>Click the button below to give the app permission to use a chosen spreadsheet. This step is required to get the app to read your spreadsheet.</p>
+<p>Step 1: Authenticate your Google account.</p>
 <button id="pick-spreadsheet-btn" disabled>Authenticate</button>
 
 <div id="picker-step">
-    <p><strong>Step 2:</strong> Click the button below to choose your spreadsheet.</p>
+    <p><strong>Step 2:</strong> Click the red button below to choose your spreadsheet.</p>
     <button id="open-picker-btn">Open Picker</button>
 </div>
 
 <div id="status">Loading APIs...</div>
 <div id="selected-spreadsheet"></div>
 
-<!-- Load Google API and Identity Services -->
 <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()" async defer></script>
 <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" async defer></script>
 
@@ -101,7 +107,7 @@
         console.log('Google Identity Services loaded.');
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: CLIENT_ID,
-            scope: SCOPES,
+            scope: SCOPES
         });
         gisInited = true;
         updateStatus();
@@ -127,9 +133,11 @@
             }
             accessToken = resp.access_token;
             statusEl.textContent = 'Authentication successful! Proceed to Step 2.';
-            pickerStepDiv.style.display = 'block'; // show step 2
+            // Always show Step 2 panel
+            pickerStepDiv.style.display = 'block';
+            openPickerBtn.focus(); // bring user attention
         };
-        tokenClient.requestAccessToken({ prompt: 'consent' }); // ask consent if first time
+        tokenClient.requestAccessToken({ prompt: 'consent' });
     });
 
     // === Step 2: Open Picker ===
@@ -162,6 +170,7 @@
             const fileUrl = `https://docs.google.com/spreadsheets/d/${fileId}/edit`;
             selectedSpreadsheetEl.innerHTML = `Selected Spreadsheet: <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileUrl}</a>`;
             statusEl.textContent = 'Spreadsheet selected successfully.';
+            pickerStepDiv.style.display = 'none'; // hide Step 2 after selection
         } else if (data.action === google.picker.Action.CANCEL) {
             statusEl.textContent = 'Spreadsheet selection cancelled.';
         }
