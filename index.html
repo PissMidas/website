@@ -26,18 +26,18 @@
         margin-top: 10px;
         color: #555;
     }
-    /* Step 2 panel style */
+    /* Step 2 panel style - light green */
     #picker-step {
         margin-top: 20px;
         padding: 15px;
-        background-color: #ffe6e6;
-        border: 2px solid red;
+        background-color: #e6ffe6; /* light green */
+        border: 2px solid #33cc33;
         border-radius: 5px;
         display: none;
         animation: pulse 1s infinite alternate;
     }
     #open-picker-btn {
-        background-color: red;
+        background-color: #33cc33;
         color: white;
         font-weight: bold;
         border: none;
@@ -48,8 +48,8 @@
     }
 
     @keyframes pulse {
-        0% { background-color: #ffe6e6; }
-        100% { background-color: #ffcccc; }
+        0% { background-color: #e6ffe6; }
+        100% { background-color: #ccffcc; }
     }
 </style>
 </head>
@@ -65,7 +65,7 @@
 <button id="pick-spreadsheet-btn" disabled>Authenticate</button>
 
 <div id="picker-step">
-    <p><strong>Step 2:</strong> Click the red button below to choose your spreadsheet.</p>
+    <p><strong>Step 2:</strong> Click the green button below to choose your spreadsheet.</p>
     <button id="open-picker-btn">Open Picker</button>
 </div>
 
