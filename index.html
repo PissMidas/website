@@ -26,6 +26,23 @@
             margin-top: 10px;
             color: #555;
         }
+        /* Modal styles */
+        #picker-modal {
+            display: none;
+            position: fixed;
+            top:0; left:0; right:0; bottom:0;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+        #picker-modal .modal-content {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            max-width: 400px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -41,6 +58,14 @@
 
     <div id="status">Loading APIs...</div>
     <div id="selected-spreadsheet"></div>
+
+    <!-- Modal -->
+    <div id="picker-modal">
+        <div class="modal-content">
+            <p>Authentication successful! Click below to choose a spreadsheet:</p>
+            <button id="modal-open-picker">Open Picker</button>
+        </div>
+    </div>
 
     <!-- Load Google API and Identity Services -->
     <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()" async defer></script>
@@ -85,8 +110,10 @@
                     }
                     accessToken = resp.access_token;
                     console.log('Access token obtained.');
-                    statusEl.textContent = 'Authentication successful. Click the button again to choose a spreadsheet.';
-                    pickBtn.disabled = false;
+                    statusEl.textContent = 'Authentication successful!';
+                    
+                    // Show modal instead of asking to click again
+                    document.getElementById('picker-modal').style.display = 'flex';
                 }
             });
             gisInited = true;
@@ -119,9 +146,15 @@
                 // Request user consent and get access token
                 tokenClient.requestAccessToken({ prompt: 'consent' });
             } else {
-                // Only open Picker from a direct user click
-                createPicker();
+                // Already authenticated, open modal
+                document.getElementById('picker-modal').style.display = 'flex';
             }
+        });
+
+        // Modal button opens Picker
+        document.getElementById('modal-open-picker').addEventListener('click', () => {
+            createPicker();
+            document.getElementById('picker-modal').style.display = 'none';
         });
 
         function createPicker() {
