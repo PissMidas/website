@@ -5,66 +5,83 @@
 <title>PissMidas - Awakening Overlay Uploader</title>
 <meta name="google-site-verification" content="quPe9cKBc7hcUIQpqAdgw34o3To2IaBWSDzcB1SZ-44" />
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        max-width: 700px;
-        margin: 2rem auto;
-        line-height: 1.6;
-    }
-    button {
-        margin-top: 20px;
-        padding: 10px 20px;
-        font-size: 16px;
-        cursor: pointer;
-    }
-    #selected-spreadsheet {
-        margin-top: 20px;
-        font-weight: bold;
-        word-break: break-word;
-    }
-    #status {
-        margin-top: 10px;
-        color: #555;
-    }
-    /* Step 2 panel style - light green */
-    #picker-step {
-        margin-top: 20px;
-        padding: 15px;
-        background-color: #e6ffe6; /* light green */
-        border: 2px solid #33cc33;
-        border-radius: 5px;
-        display: none;
-        animation: pulse 1s infinite alternate;
-    }
-    #open-picker-btn {
-        background-color: #33cc33;
-        color: white;
-        font-weight: bold;
-        border: none;
-        border-radius: 5px;
-        font-size: 18px;
-        padding: 10px 20px;
-        cursor: pointer;
-    }
+body {
+    font-family: Arial, sans-serif;
+    max-width: 700px;
+    margin: 2rem auto;
+    line-height: 1.6;
+}
+button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+}
+#selected-spreadsheet {
+    margin-top: 20px;
+    font-weight: bold;
+    word-break: break-word;
+}
+#status {
+    margin-top: 10px;
+    color: #555;
+}
 
-    @keyframes pulse {
-        0% { background-color: #e6ffe6; }
-        100% { background-color: #ccffcc; }
-    }
+/* Modal for Step 2 */
+#picker-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #e6ffe6; /* light green */
+    border: 2px solid #33cc33;
+    border-radius: 10px;
+    padding: 25px;
+    text-align: center;
+    z-index: 1000;
+    animation: pulse 1s infinite alternate;
+}
+#picker-modal button {
+    background-color: #33cc33;
+    color: white;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    font-size: 18px;
+    padding: 12px 25px;
+    cursor: pointer;
+}
+@keyframes pulse {
+    0% { background-color: #e6ffe6; }
+    100% { background-color: #ccffcc; }
+}
+
+/* Overlay behind modal */
+#modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.3);
+    z-index: 999;
+}
 </style>
 </head>
 <body>
+
 <h1>PissMidas</h1>
 <p>This is the official homepage of the Awakening Overlay Uploader App.</p>
-<p>This app is for tournament stream runners to display awakenings for the game Omega Strikers. The app reads data from locally generated .log files that the game creates while running. The app processes those game events and uploads that data to a Google Sheet. Users can then use the sheet to generate a graphic overlay, and have that overlay be broadcasted on their tournament stream.</p>
+<p>This app reads locally generated .log files from Omega Strikers, uploads data to Google Sheets, and allows tournament streams to display overlays.</p>
 
 <a href="privacy.html">Privacy Policy</a>
 
-<h2>Select a Google Spreadsheet</h2>
+<h2>Authenticate and Select Spreadsheet</h2>
 <p>Step 1: Authenticate your Google account.</p>
-<button id="pick-spreadsheet-btn" disabled>Authenticate</button>
+<button id="auth-btn" disabled>Authenticate</button>
 
-<div id="picker-step">
+<div id="modal-overlay"></div>
+<div id="picker-modal">
     <p><strong>Step 2:</strong> Click the green button below to choose your spreadsheet.</p>
     <button id="open-picker-btn">Open Picker</button>
 </div>
@@ -76,110 +93,105 @@
 <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" async defer></script>
 
 <script>
-    const CLIENT_ID = '304904465571-jt6kkpt4hcf1961khu78l4fud89u5im8.apps.googleusercontent.com';
-    const DEVELOPER_KEY = 'AIzaSyDOdsegG1Z1AyXM_hSwX3LapVFwp2xOiYM';
-    const APP_ID = '304904465571';
-    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const CLIENT_ID = '304904465571-jt6kkpt4hcf1961khu78l4fud89u5im8.apps.googleusercontent.com';
+const DEVELOPER_KEY = 'AIzaSyDOdsegG1Z1AyXM_hSwX3LapVFwp2xOiYM';
+const APP_ID = '304904465571';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
-    let tokenClient;
-    let accessToken = null;
-    let pickerInited = false;
-    let gisInited = false;
+let tokenClient;
+let accessToken = null;
+let pickerInited = false;
+let gisInited = false;
 
-    const statusEl = document.getElementById('status');
-    const authBtn = document.getElementById('pick-spreadsheet-btn');
-    const pickerStepDiv = document.getElementById('picker-step');
-    const openPickerBtn = document.getElementById('open-picker-btn');
-    const selectedSpreadsheetEl = document.getElementById('selected-spreadsheet');
+const statusEl = document.getElementById('status');
+const authBtn = document.getElementById('auth-btn');
+const pickerModal = document.getElementById('picker-modal');
+const modalOverlay = document.getElementById('modal-overlay');
+const openPickerBtn = document.getElementById('open-picker-btn');
+const selectedSpreadsheetEl = document.getElementById('selected-spreadsheet');
 
-    function gapiLoaded() {
-        console.log('Google API loaded.');
-        gapi.load('picker', onPickerApiLoad);
+// === Load APIs ===
+function gapiLoaded() {
+    console.log('Google API loaded.');
+    gapi.load('picker', () => { pickerInited = true; updateStatus(); });
+}
+function gisLoaded() {
+    console.log('Google Identity Services loaded.');
+    tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES });
+    gisInited = true;
+    updateStatus();
+}
+
+function updateStatus() {
+    if (!pickerInited || !gisInited) {
+        statusEl.textContent = 'Loading APIs...';
+        authBtn.disabled = true;
+    } else {
+        statusEl.textContent = 'APIs loaded. Click Authenticate to continue.';
+        authBtn.disabled = false;
     }
+}
 
-    function onPickerApiLoad() {
-        pickerInited = true;
-        console.log('Picker API initialized.');
-        updateStatus();
-    }
-
-    function gisLoaded() {
-        console.log('Google Identity Services loaded.');
-        tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: CLIENT_ID,
-            scope: SCOPES
-        });
-        gisInited = true;
-        updateStatus();
-    }
-
-    function updateStatus() {
-        if (!pickerInited || !gisInited) {
-            statusEl.textContent = 'Loading APIs...';
-            authBtn.disabled = true;
-        } else {
-            statusEl.textContent = 'APIs loaded. Click Authenticate to continue.';
-            authBtn.disabled = false;
-        }
-    }
-
-    // === Step 1: Authenticate ===
-    authBtn.addEventListener('click', () => {
-        tokenClient.callback = (resp) => {
-            if (resp.error) {
-                statusEl.textContent = 'Authentication failed.';
-                console.error(resp.error);
-                return;
-            }
-            accessToken = resp.access_token;
-            statusEl.textContent = 'Authentication successful! Proceed to Step 2.';
-            // Always show Step 2 panel
-            pickerStepDiv.style.display = 'block';
-            openPickerBtn.focus(); // bring user attention
-        };
-        tokenClient.requestAccessToken({ prompt: 'consent' });
-    });
-
-    // === Step 2: Open Picker ===
-    openPickerBtn.addEventListener('click', () => {
-        if (!pickerInited || !accessToken) {
-            alert('Picker not ready or not authenticated.');
+// === Step 1: Authenticate ===
+authBtn.addEventListener('click', () => {
+    tokenClient.callback = (resp) => {
+        if (resp.error) {
+            statusEl.textContent = 'Authentication failed.';
+            console.error(resp.error);
             return;
         }
-        createPicker();
-    });
-
-    function createPicker() {
-        const view = new google.picker.View(google.picker.ViewId.SPREADSHEETS);
-        const picker = new google.picker.PickerBuilder()
-            .addView(view)
-            .enableFeature(google.picker.Feature.NAV_HIDDEN)
-            .setOAuthToken(accessToken)
-            .setDeveloperKey(DEVELOPER_KEY)
-            .setAppId(APP_ID)
-            .setCallback(pickerCallback)
-            .build();
-        picker.setVisible(true);
-        console.log('Picker shown.');
-    }
-
-    function pickerCallback(data) {
-        if (data.action === google.picker.Action.PICKED) {
-            const doc = data.docs[0];
-            const fileId = doc.id;
-            const fileUrl = `https://docs.google.com/spreadsheets/d/${fileId}/edit`;
-            selectedSpreadsheetEl.innerHTML = `Selected Spreadsheet: <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileUrl}</a>`;
-            statusEl.textContent = 'Spreadsheet selected successfully.';
-            pickerStepDiv.style.display = 'none'; // hide Step 2 after selection
-        } else if (data.action === google.picker.Action.CANCEL) {
-            statusEl.textContent = 'Spreadsheet selection cancelled.';
-        }
-    }
-
-    window.onload = () => {
-        authBtn.disabled = true;
-        updateStatus();
+        accessToken = resp.access_token;
+        statusEl.textContent = 'Authentication successful! Proceed to Step 2.';
+        // Show Step 2 modal
+        modalOverlay.style.display = 'block';
+        pickerModal.style.display = 'block';
+        openPickerBtn.focus();
     };
+    tokenClient.requestAccessToken({ prompt: 'consent' });
+});
+
+// === Step 2: Open Picker ===
+openPickerBtn.addEventListener('click', () => {
+    if (!pickerInited || !accessToken) {
+        alert('Picker not ready or not authenticated.');
+        return;
+    }
+    createPicker();
+    // hide modal after click
+    pickerModal.style.display = 'none';
+    modalOverlay.style.display = 'none';
+});
+
+function createPicker() {
+    const view = new google.picker.View(google.picker.ViewId.SPREADSHEETS);
+    const picker = new google.picker.PickerBuilder()
+        .addView(view)
+        .enableFeature(google.picker.Feature.NAV_HIDDEN)
+        .setOAuthToken(accessToken)
+        .setDeveloperKey(DEVELOPER_KEY)
+        .setAppId(APP_ID)
+        .setCallback(pickerCallback)
+        .build();
+    picker.setVisible(true);
+    console.log('Picker shown.');
+}
+
+function pickerCallback(data) {
+    if (data.action === google.picker.Action.PICKED) {
+        const doc = data.docs[0];
+        const fileId = doc.id;
+        const fileUrl = `https://docs.google.com/spreadsheets/d/${fileId}/edit`;
+        selectedSpreadsheetEl.innerHTML = `Selected Spreadsheet: <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileUrl}</a>`;
+        statusEl.textContent = 'Spreadsheet selected successfully.';
+    } else if (data.action === google.picker.Action.CANCEL) {
+        statusEl.textContent = 'Spreadsheet selection cancelled.';
+    }
+}
+
+window.onload = () => {
+    authBtn.disabled = true;
+    updateStatus();
+};
 </script>
 </body>
 </html>
