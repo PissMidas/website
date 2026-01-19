@@ -2,172 +2,188 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>PissMidas - Awakening Overlay Uploader</title>
-<meta name="google-site-verification" content="quPe9cKBc7hcUIQpqAdgw34o3To2IaBWSDzcB1SZ-44" />
+<title>PissMidas - Picker Debug</title>
 <style>
-  body { font-family: Arial, sans-serif; max-width:700px; margin:2rem auto; line-height:1.6; }
-  button { margin-top:20px; padding:10px 20px; font-size:16px; cursor:pointer; }
-  #selected-spreadsheet { margin-top:20px; font-weight:bold; word-break:break-word; }
-  #status { margin-top:10px; color:#555; }
+  body{font-family:Arial, sans-serif;max-width:800px;margin:2rem auto}
+  button{margin-top:12px;padding:10px 16px;font-size:15px}
+  #status{margin-top:10px;color:#333}
+  #log{margin-top:12px;white-space:pre-wrap;font-family:monospace;background:#f7f7f7;padding:8px;border-radius:4px;max-height:240px;overflow:auto}
 </style>
 </head>
 <body>
-  <h1>PissMidas</h1>
-  <p>Awakening Overlay Uploader — select a Google Spreadsheet. Firefox requires a direct user gesture for popups; this page uses a safe multi-click flow.</p>
+  <h1>PissMidas - Picker Debug</h1>
+  <p>Flow: click once → authenticate (opens OAuth popup). After console shows "Authenticated", click again → open Picker.</p>
 
-  <button id="pick-spreadsheet-btn" disabled>Authenticate</button>
+  <button id="pick-spreadsheet-btn" type="button" disabled>Authenticate & Choose Spreadsheet</button>
   <div id="status">Loading APIs...</div>
   <div id="selected-spreadsheet"></div>
+  <div id="log"></div>
 
-  <!-- Google APIs -->
+  <!-- Google libs -->
   <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()" async defer></script>
   <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" async defer></script>
 
-  <script>
-  // ---------- CONFIG ----------
-  const CLIENT_ID = '304904465571-jt6kkpt4hcf1961khu78l4fud89u5im8.apps.googleusercontent.com';
-  const DEVELOPER_KEY = 'AIzaSyDOdsegG1Z1AyXM_hSwX3LapVFwp2xOiYM';
-  const APP_ID = '304904465571';
-  const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+<script>
+/* CONFIG - replace with your values */
+const CLIENT_ID = '304904465571-jt6kkpt4hcf1961khu78l4fud89u5im8.apps.googleusercontent.com';
+const DEVELOPER_KEY = 'AIzaSyDOdsegG1Z1AyXM_hSwX3LapVFwp2xOiYM';
+const APP_ID = '304904465571';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
-  // ---------- STATE ----------
-  let tokenClient = null;
-  let accessToken = null;
-  let pickerInited = false;
-  let gisInited = false;
-  let step = 0; // 0 = ready to Authenticate, 1 = auth requested, 2 = auth confirmed (ready to pick)
+/* UI */
+const pickBtn = document.getElementById('pick-spreadsheet-btn');
+const statusEl = document.getElementById('status');
+const selectedEl = document.getElementById('selected-spreadsheet');
+const logEl = document.getElementById('log');
+function log(...args){ console.log(...args); logEl.textContent += args.map(a=>typeof a==='object' ? JSON.stringify(a,null,2): String(a)).join(' ') + '\n'; logEl.scrollTop = logEl.scrollHeight; }
 
-  const statusEl = document.getElementById('status');
-  const pickBtn = document.getElementById('pick-spreadsheet-btn');
-  const selectedEl = document.getElementById('selected-spreadsheet');
+/* state */
+let tokenClient = null;
+let accessToken = null;
+let pickerInited = false;
+let gisInited = false;
+let state = 'idle'; // idle, auth_pending, authenticated
 
-  // ---------- API load handlers ----------
-  function gapiLoaded() {
-    gapi.load('picker', () => { pickerInited = true; updateUi(); });
-  }
-
-  function gisLoaded() {
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-      callback: (resp) => {
-        if (resp.error) {
-          console.error('Token error', resp);
-          statusEl.textContent = 'Authentication error. Click Authenticate to try again.';
-          // keep step as-is so user can retry
-          return;
-        }
-        accessToken = resp.access_token;
-        // IMPORTANT: do not open Picker here. Only update state/UI.
-        statusEl.textContent = 'Authentication completed. Click Confirm Authentication to continue.';
-        pickBtn.textContent = 'Confirm Authentication';
-      }
-    });
-    gisInited = true;
-    updateUi();
-  }
-
-  // ---------- UI state ----------
-  function updateUi() {
-    if (!pickerInited || !gisInited) {
-      statusEl.textContent = 'Loading APIs...';
-      pickBtn.disabled = true;
-      pickBtn.textContent = 'Loading…';
-      return;
-    }
-    // APIs ready
-    if (step === 0) {
-      pickBtn.disabled = false;
-      pickBtn.textContent = 'Authenticate';
-      statusEl.textContent = 'APIs loaded. Click Authenticate to sign in.';
-    } else if (step === 1) {
-      pickBtn.disabled = false;
-      pickBtn.textContent = 'Confirm Authentication';
-      statusEl.textContent = 'Authentication started. Complete Google sign-in popup, then click Confirm Authentication.';
-    } else if (step === 2) {
-      pickBtn.disabled = false;
-      pickBtn.textContent = 'Choose Spreadsheet';
-      statusEl.textContent = 'Authenticated. Click Choose Spreadsheet to open the picker.';
-    }
-  }
-
-  // ---------- Button flow (multi-click) ----------
-  pickBtn.addEventListener('click', () => {
-    if (step === 0) {
-      // 1st click: request access token (user gesture)
-      try {
-        tokenClient.requestAccessToken({ prompt: 'consent' });
-      } catch (err) {
-        console.error('requestAccessToken error', err);
-        statusEl.textContent = 'Unable to start auth. Try again.';
+/* loaders */
+function gapiLoaded(){
+  log('gapiLoaded');
+  try { gapi.load('picker', onPickerApiLoad); } catch(e){ log('gapi.load error', e); }
+}
+function onPickerApiLoad(){ pickerInited = true; log('picker inited'); updateUI(); }
+function gisLoaded(){
+  log('gisLoaded');
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: (resp) => {
+      log('token callback invoked (ASYNC):', resp);
+      if (resp.error) {
+        statusEl.textContent = 'Authentication failed: ' + (resp.error || 'unknown');
+        state = 'idle';
+        updateUI();
         return;
       }
-      step = 1;
-      updateUi();
-      // The token callback will set accessToken asynchronously.
-    } else if (step === 1) {
-      // 2nd click: confirm that auth completed (user gesture)
-      if (!accessToken) {
-        statusEl.textContent = 'Still signing in — finish the Google popup, then click Confirm Authentication.';
-        return;
-      }
-      step = 2;
-      updateUi();
-    } else if (step === 2) {
-      // 3rd click: open Picker directly from user gesture
-      if (!accessToken) {
-        statusEl.textContent = 'No access token present. Click Authenticate to start again.';
-        step = 0;
-        updateUi();
-        return;
-      }
-      createPicker();
+      accessToken = resp.access_token;
+      state = 'authenticated';
+      statusEl.textContent = 'Authenticated — click the button again to open the Picker.';
+      log('accessToken obtained (set state=authenticated). IMPORTANT: createPicker NOT called here.');
+      updateUI();
     }
   });
+  gisInited = true;
+  updateUI();
+}
 
-  // ---------- Create and show Google Picker ----------
-  function createPicker() {
-    if (!pickerInited) {
-      statusEl.textContent = 'Picker not loaded.';
-      return;
-    }
-    const view = new google.picker.View(google.picker.ViewId.SPREADSHEETS);
-    const picker = new google.picker.PickerBuilder()
-      .addView(view)
-      .enableFeature(google.picker.Feature.NAV_HIDDEN)
-      .setOAuthToken(accessToken)
-      .setDeveloperKey(DEVELOPER_KEY)
-      .setAppId(APP_ID)
-      .setCallback(pickerCallback)
-      .build();
-    picker.setVisible(true);
-    statusEl.textContent = 'Picker opened. Choose a spreadsheet.';
-  }
-
-  // ---------- Picker callback ----------
-  function pickerCallback(data) {
-    if (data.action === google.picker.Action.PICKED) {
-      const doc = data.docs[0];
-      const fileId = doc.id;
-      const fileUrl = `https://docs.google.com/spreadsheets/d/${fileId}/edit`;
-      selectedEl.innerHTML = `Selected Spreadsheet: <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileUrl}</a>`;
-      statusEl.textContent = 'Spreadsheet selected successfully.';
-      // reset flow so user can choose another later
-      step = 0;
-      accessToken = accessToken; // keep token cached if desired
-      updateUi();
-    } else if (data.action === google.picker.Action.CANCEL) {
-      statusEl.textContent = 'Spreadsheet selection cancelled.';
-      // keep at step 2 so user can open picker again
-      updateUi();
-    }
-  }
-
-  // ---------- On load ----------
-  window.addEventListener('load', () => {
+/* UI updater */
+function updateUI(){
+  if (!pickerInited || !gisInited) {
+    statusEl.textContent = 'Loading Google APIs...';
     pickBtn.disabled = true;
-    updateUi();
-  });
-  </script>
+    return;
+  }
+  pickBtn.disabled = false;
+  if (state === 'idle') {
+    statusEl.textContent = 'APIs loaded. Click to authenticate (first click will open OAuth popup).';
+    pickBtn.textContent = 'Authenticate';
+  } else if (state === 'auth_pending') {
+    statusEl.textContent = 'Authentication requested — complete the Google popup, then click again.';
+    pickBtn.textContent = 'Complete Authentication';
+  } else if (state === 'authenticated') {
+    statusEl.textContent = 'Authenticated. Click to open Picker.';
+    pickBtn.textContent = 'Open Spreadsheet Picker';
+  }
+}
+
+/* Strict click handler: createPicker only when state==='authenticated' and executed synchronously */
+pickBtn.addEventListener('click', function (ev) {
+  log('click event: timestamp=' + Date.now(), 'isTrusted=' + ev.isTrusted, 'state=' + state);
+  // Guard: ensure this is a real user click
+  if (!ev.isTrusted) {
+    log('Event not trusted; blocked by browser as synthetic. Do not open popups on synthetic events.');
+    return;
+  }
+
+  if (state === 'idle') {
+    // First click: request token. Do NOT call createPicker here.
+    try {
+      state = 'auth_pending';
+      updateUI();
+      log('Calling tokenClient.requestAccessToken() synchronously from click handler (this opens OAuth popup).');
+      tokenClient.requestAccessToken({ prompt: 'consent' });
+      // Do NOT call createPicker() here or in the token callback.
+      log('Returned from requestAccessToken call. Waiting for token callback to set state.');
+    } catch (err) {
+      log('requestAccessToken threw', err);
+      state = 'idle';
+      updateUI();
+    }
+    return;
+  }
+
+  if (state === 'auth_pending') {
+    // Second click while still pending: helpful to log.
+    log('Authentication still pending (token callback hasn\'t run). Please finish sign-in in the Google popup, then click again.');
+    return;
+  }
+
+  if (state === 'authenticated') {
+    // Second click after authenticated: MUST call createPicker synchronously here.
+    log('Opening Picker synchronously from user click. This call MUST be direct and not inside any async callback.');
+    try {
+      createPickerSync();
+    } catch (err) {
+      log('createPickerSync threw', err);
+    }
+    return;
+  }
+});
+
+/* createPickerSync - must run synchronously inside click handler */
+function createPickerSync() {
+  // sanity checks
+  if (!pickerInited) { log('picker not inited'); return; }
+  if (!accessToken) { log('no access token'); return; }
+
+  // Build picker
+  const view = new google.picker.View(google.picker.ViewId.SPREADSHEETS);
+  const picker = new google.picker.PickerBuilder()
+    .addView(view)
+    .setOAuthToken(accessToken)
+    .setDeveloperKey(DEVELOPER_KEY)
+    .setAppId(APP_ID)
+    .setCallback(pickerCallback)
+    .build();
+
+  // Inspect whether browser may block. This operation does not use window.open in user code,
+  // but Picker code internally may create an iframe/popup. Because this call runs inside a
+  // trusted click handler, Firefox should allow it.
+  console.trace('createPickerSync trace');
+  log('picker.setVisible() about to be called synchronously');
+  picker.setVisible(true);
+  log('picker.setVisible() was called');
+}
+
+/* picker callback */
+function pickerCallback(data) {
+  log('pickerCallback', data);
+  if (data.action === google.picker.Action.PICKED) {
+    const doc = data.docs[0];
+    const fileUrl = `https://docs.google.com/spreadsheets/d/${doc.id}/edit`;
+    selectedEl.innerHTML = `Selected Spreadsheet: <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileUrl}</a>`;
+    statusEl.textContent = 'Spreadsheet selected.';
+  } else if (data.action === google.picker.Action.CANCEL) {
+    statusEl.textContent = 'Picker cancelled.';
+  } else {
+    statusEl.textContent = 'Picker action: ' + data.action;
+  }
+}
+
+/* initial UI state */
+window.onload = () => {
+  pickBtn.disabled = true;
+  updateUI();
+  log('page loaded; waiting for Google APIs');
+};
+</script>
 </body>
 </html>
