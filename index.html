@@ -36,8 +36,8 @@
     <a href="privacy.html">Privacy Policy</a>
 
     <h2>Select a Google Spreadsheet</h2>
-    <p>Click the button below to give the app permission to use a chosen spreadsheet. This step is required to get the app to read your spreadsheet.</p>
-    <button id="pick-spreadsheet-btn" disabled>Choose Spreadsheet</button>
+    <p>Click the button below to give the app permission to use a chosen spreadsheet. You may need to click twice: once to authenticate, then again to choose a spreadsheet.</p>
+    <button id="pick-spreadsheet-btn" disabled>Authenticate & Choose Spreadsheet</button>
 
     <div id="status">Loading APIs...</div>
     <div id="selected-spreadsheet"></div>
@@ -91,7 +91,7 @@
                     accessToken = resp.access_token;
                     console.log('Access token obtained.');
                     statusEl.textContent = 'Authentication successful. Click the button again to choose a spreadsheet.';
-                    pickBtn.textContent = 'Choose Spreadsheet'; // update button text for clarity
+                    pickBtn.textContent = 'Choose Spreadsheet';
                     pickBtn.disabled = false; // second click opens picker
                 }
             });
@@ -99,7 +99,7 @@
             updateStatus();
         }
 
-        // Update status message and button state based on loaded APIs
+        // Update status and button based on API load
         function updateStatus() {
             if (!pickerInited && !gisInited) {
                 statusEl.textContent = 'Loading APIs...';
@@ -112,25 +112,25 @@
                 pickBtn.disabled = true;
             } else {
                 if (!accessToken) {
-                    statusEl.textContent = 'APIs loaded. Please authenticate to continue.';
+                    statusEl.textContent = 'APIs loaded. Click button to authenticate.';
                     pickBtn.disabled = false;
                     pickBtn.textContent = 'Authenticate & Choose Spreadsheet';
                 } else {
-                    statusEl.textContent = 'APIs loaded and authenticated. Click the button to choose a spreadsheet.';
+                    statusEl.textContent = 'APIs loaded and authenticated. Click button to choose spreadsheet.';
                     pickBtn.disabled = false;
                     pickBtn.textContent = 'Choose Spreadsheet';
                 }
             }
         }
 
-        // Handle the button click to authenticate and/or show picker
+        // Handle user click
         pickBtn.addEventListener('click', () => {
             if (!accessToken) {
                 // First click: request access token
                 tokenClient.requestAccessToken({ prompt: 'consent' });
                 statusEl.textContent = 'Authenticating… please click again after signing in.';
             } else {
-                // Second click: show picker directly
+                // Second click: open picker
                 createPicker();
             }
         });
@@ -139,10 +139,6 @@
         function createPicker() {
             if (!pickerInited) {
                 alert('Picker API not loaded yet.');
-                return;
-            }
-            if (!accessToken) {
-                alert('You must authenticate first.');
                 return;
             }
 
@@ -161,13 +157,12 @@
             console.log('Picker shown.');
         }
 
-        // Handle user's selection from Picker
+        // Handle user's selection
         function pickerCallback(data) {
             if (data.action === google.picker.Action.PICKED) {
                 const doc = data.docs[0];
                 const fileId = doc.id;
                 const fileUrl = `https://docs.google.com/spreadsheets/d/${fileId}/edit`;
-                console.log(`User selected spreadsheet: ${fileUrl}`);
                 selectedSpreadsheetEl.innerHTML = `Selected Spreadsheet: <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileUrl}</a>`;
                 statusEl.textContent = 'Spreadsheet selected successfully.';
             } else if (data.action === google.picker.Action.CANCEL) {
@@ -175,7 +170,7 @@
             }
         }
 
-        // On page load, initialize UI state
+        // Initialize UI on page load
         window.onload = () => {
             pickBtn.disabled = true;
             updateStatus();
