@@ -91,6 +91,7 @@
                     accessToken = resp.access_token;
                     console.log('Access token obtained.');
                     statusEl.textContent = 'Authentication successful. Click the button again to choose a spreadsheet.';
+                    pickBtn.textContent = 'Choose Spreadsheet'; // update button text for clarity
                     pickBtn.disabled = false; // second click opens picker
                 }
             });
@@ -113,20 +114,23 @@
                 if (!accessToken) {
                     statusEl.textContent = 'APIs loaded. Please authenticate to continue.';
                     pickBtn.disabled = false;
+                    pickBtn.textContent = 'Authenticate & Choose Spreadsheet';
                 } else {
                     statusEl.textContent = 'APIs loaded and authenticated. Click the button to choose a spreadsheet.';
                     pickBtn.disabled = false;
+                    pickBtn.textContent = 'Choose Spreadsheet';
                 }
             }
         }
 
-        // Handle the button click to authenticate and show picker
+        // Handle the button click to authenticate and/or show picker
         pickBtn.addEventListener('click', () => {
             if (!accessToken) {
-                // Request user consent and get access token
+                // First click: request access token
                 tokenClient.requestAccessToken({ prompt: 'consent' });
+                statusEl.textContent = 'Authenticating… please click again after signing in.';
             } else {
-                // Access token exists, show picker directly
+                // Second click: show picker directly
                 createPicker();
             }
         });
