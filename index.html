@@ -18,8 +18,8 @@ button { margin-top: 20px; padding: 10px 20px; font-size: 16px; cursor: pointer;
 <div id="status">Loading APIs...</div>
 <div id="selected-spreadsheet"></div>
 
-<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()" async defer></script>
-<script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 
 <script>
 const CLIENT_ID = '304904465571-jt6kkpt4hcf1961khu78l4fud89u5im8.apps.googleusercontent.com';
@@ -36,13 +36,25 @@ const pickBtn = document.getElementById('pick-spreadsheet-btn');
 const statusEl = document.getElementById('status');
 const selectedEl = document.getElementById('selected-spreadsheet');
 
-function gapiLoaded() { gapi.load('picker', () => { pickerInited = true; updateStatus(); }); }
+// Initialize Picker API
+function gapiLoaded() {
+    gapi.load('picker', () => {
+        pickerInited = true;
+        updateStatus();
+    });
+}
+
+// Initialize Google Identity Services
 function gisLoaded() {
     tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
         callback: (resp) => {
-            if (resp.error) { statusEl.textContent = 'Authentication failed'; return; }
+            if (resp.error) {
+                statusEl.textContent = 'Authentication failed';
+                console.error(resp);
+                return;
+            }
             accessToken = resp.access_token;
             statusEl.textContent = 'Authenticated. Click the button to open Picker.';
             pickBtn.disabled = false;
@@ -52,61 +64,61 @@ function gisLoaded() {
     updateStatus();
 }
 
+// Update button and status
 function updateStatus() {
     if (!pickerInited || !gisInited) {
         statusEl.textContent = 'Loading Google APIs...';
         pickBtn.disabled = true;
         return;
     }
-    pickBtn.disabled = accessToken ? false : false;
+    pickBtn.disabled = false;
     statusEl.textContent = accessToken ? 'Click to open Picker' : 'Click to authenticate';
 }
 
+// Handle button clicks
 pickBtn.addEventListener('click', () => {
     if (!accessToken) {
+        // First click: request OAuth token
         tokenClient.requestAccessToken({ prompt: 'consent' });
         return;
     }
-    // Open a small popup window to host the Picker (avoids 3P cookie restrictions)
+
+    // Open popup for Picker (Firefox-safe)
     const width = 600, height = 500;
     const left = (screen.width / 2) - (width / 2);
     const top = (screen.height / 2) - (height / 2);
     const pickerWindow = window.open('', 'pickerWindow', `width=${width},height=${height},top=${top},left=${left}`);
-    pickerWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head><title>Spreadsheet Picker</title></head>
-        <body><div id="status">Loading Picker...</div></body>
-        <script src="https://apis.google.com/js/api.js" onload="gapi.load('picker',initPicker)" async defer></script>
-        <script>
-        const accessToken = "${accessToken}";
-        const DEVELOPER_KEY = "${DEVELOPER_KEY}";
-        const APP_ID = "${APP_ID}";
-        function initPicker() {
-            const view = new google.picker.View(google.picker.ViewId.SPREADSHEETS);
-            const picker = new google.picker.PickerBuilder()
-                .addView(view)
-                .setOAuthToken(accessToken)
-                .setDeveloperKey(DEVELOPER_KEY)
-                .setAppId(APP_ID)
-                .setCallback((data) => {
-                    if (data.action === google.picker.Action.PICKED) {
-                        const doc = data.docs[0];
-                        window.opener.postMessage({ spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/' + doc.id + '/edit' }, '*');
-                        window.close();
-                    } else if (data.action === google.picker.Action.CANCEL) {
-                        window.close();
-                    }
-                })
-                .build();
-            picker.setVisible(true);
-        }
-        </script>
-        </html>
-    `);
+
+    pickerWindow.document.write(
+        '<!DOCTYPE html><html><head><title>Spreadsheet Picker</title></head><body>' +
+        '<div id="status">Loading Picker...</div>' +
+        '<script src="https://apis.google.com/js/api.js" async defer onload="gapi.load(\'picker\', initPicker)"><\/script>' +
+        '<script>' +
+        'const accessToken="' + accessToken + '";' +
+        'const DEVELOPER_KEY="' + DEVELOPER_KEY + '";' +
+        'const APP_ID="' + APP_ID + '";' +
+        'function initPicker() {' +
+        '  const view=new google.picker.View(google.picker.ViewId.SPREADSHEETS);' +
+        '  const picker=new google.picker.PickerBuilder()' +
+        '    .addView(view)' +
+        '    .setOAuthToken(accessToken)' +
+        '    .setDeveloperKey(DEVELOPER_KEY)' +
+        '    .setAppId(APP_ID)' +
+        '    .setCallback((data)=>{' +
+        '      if(data.action===google.picker.Action.PICKED){' +
+        '        const doc=data.docs[0];' +
+        '        window.opener.postMessage({ spreadsheetUrl:"https://docs.google.com/spreadsheets/d/"+doc.id+"/edit" },"*");' +
+        '        window.close();' +
+        '      } else if(data.action===google.picker.Action.CANCEL){ window.close(); }' +
+        '    })' +
+        '    .build();' +
+        '  picker.setVisible(true);' +
+        '}' +
+        '<\/script></body></html>'
+    );
 });
 
-// Receive selected spreadsheet from popup
+// Receive spreadsheet selection from popup
 window.addEventListener('message', (e) => {
     if (e.data && e.data.spreadsheetUrl) {
         selectedEl.innerHTML = 'Selected Spreadsheet: <a href="' + e.data.spreadsheetUrl + '" target="_blank">' + e.data.spreadsheetUrl + '</a>';
@@ -114,7 +126,11 @@ window.addEventListener('message', (e) => {
     }
 });
 
-window.onload = () => updateStatus();
+// Call initialization after DOM loads
+window.addEventListener('DOMContentLoaded', () => {
+    gapiLoaded();
+    gisLoaded();
+});
 </script>
 </body>
 </html>
