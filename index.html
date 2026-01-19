@@ -18,6 +18,10 @@ button { margin-top: 20px; padding: 10px 20px; font-size: 16px; cursor: pointer;
 <div id="status">Loading APIs...</div>
 <div id="selected-spreadsheet"></div>
 
+<!-- Load Google API scripts synchronously to ensure gapi exists -->
+<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client"></script>
+
 <script>
 const CLIENT_ID = '304904465571-jt6kkpt4hcf1961khu78l4fud89u5im8.apps.googleusercontent.com';
 const DEVELOPER_KEY = 'AIzaSyDOdsegG1Z1AyXM_hSwX3LapVFwp2xOiYM';
@@ -89,7 +93,7 @@ pickBtn.addEventListener('click', () => {
     pickerWindow.document.write(
         '<!DOCTYPE html><html><head><title>Spreadsheet Picker</title></head><body>' +
         '<div id="status">Loading Picker...</div>' +
-        '<script src="https://apis.google.com/js/api.js" async defer onload="gapi.load(\'picker\', initPicker)"><\/script>' +
+        '<script src="https://apis.google.com/js/api.js"><\/script>' +
         '<script>' +
         'const accessToken="' + accessToken + '";' +
         'const DEVELOPER_KEY="' + DEVELOPER_KEY + '";' +
@@ -111,6 +115,7 @@ pickBtn.addEventListener('click', () => {
         '    .build();' +
         '  picker.setVisible(true);' +
         '}' +
+        'gapi.load("picker", initPicker);' +
         '<\/script></body></html>'
     );
 });
@@ -123,21 +128,9 @@ window.addEventListener('message', (e) => {
     }
 });
 
-// Load scripts dynamically to ensure gapi and GIS are ready
-const gapiScript = document.createElement('script');
-gapiScript.src = 'https://apis.google.com/js/api.js';
-gapiScript.async = true;
-gapiScript.defer = true;
-gapiScript.onload = gapiLoaded;
-document.head.appendChild(gapiScript);
-
-const gisScript = document.createElement('script');
-gisScript.src = 'https://accounts.google.com/gsi/client';
-gisScript.async = true;
-gisScript.defer = true;
-gisScript.onload = gisLoaded;
-document.head.appendChild(gisScript);
-
+// Initialize after page load
+gapiLoaded();
+gisLoaded();
 </script>
 </body>
 </html>
